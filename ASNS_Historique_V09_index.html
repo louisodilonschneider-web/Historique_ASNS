@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Suivi Aquatique EPS</title>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bleu:#1E508C;--bleu-c:#D6E4F7;--bleu-p:#EEF4FB;
+  --vert:#1A7C4E;--vert-c:#D0EDDF;
+  --or:#B07D0A;--or-c:#FBF0CC;
+  --rouge:#B82020;--rouge-c:#FAD9D9;
+  --violet:#6D28D9;--violet-c:#EDE9FE;
+  --gris:#6B7280;--gris-c:#F3F4F6;
+  --border:#D1D5DB;--text:#111827;--text2:#4B5563;
+  --r:8px;--sh:0 1px 4px rgba(0,0,0,.1)
+}
+body{font-family:"Segoe UI",system-ui,sans-serif;font-size:14px;color:var(--text);background:#F7F9FC;min-height:100vh}
+
+header{background:var(--bleu);color:#fff;padding:0 24px;display:flex;align-items:center;gap:14px;height:56px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.logo{font-size:24px}.h-title{font-size:17px;font-weight:700}.h-sub{font-size:11px;opacity:.7;margin-top:1px}
+.conn-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;
+  border:1.5px solid rgba(255,255,255,.3);cursor:default;
+  transition:background .3s,border-color .3s;margin-left:auto;
+  background:rgba(255,255,255,.12);color:#fff
+}
+.conn-badge .dot{
+  width:9px;height:9px;border-radius:50%;flex-shrink:0;
+  transition:background .3s
+}
+.conn-badge.conn-ok{background:rgba(22,163,74,.25);border-color:rgba(22,163,74,.6)}
+.conn-badge.conn-ok .dot{background:#4ade80;box-shadow:0 0 6px #4ade80}
+.conn-badge.conn-lost{background:rgba(220,38,38,.25);border-color:rgba(220,38,38,.5)}
+.conn-badge.conn-lost .dot{background:#f87171}
+.conn-badge.conn-wait{background:rgba(251,191,36,.2);border-color:rgba(251,191,36,.5)}
+.conn-badge.conn-wait .dot{background:#fbbf24;animation:blink .9s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* BARRE RECHERCHE GLOBALE */
+.search-global-bar{
+  background:var(--bleu-p);border-bottom:1px solid var(--bleu-c);
+  padding:10px 24px;display:flex;align-items:center;gap:10px
+}
+.search-global-bar input{
+  height:36px;border:1.5px solid var(--bleu-c);border-radius:var(--r);
+  padding:0 12px 0 36px;font-size:13px;width:300px;background:#fff;
+  transition:border-color .2s
+}
+.search-global-bar input:focus{outline:none;border-color:var(--bleu)}
+.search-global-bar .icon{position:relative}
+.search-global-bar .icon::before{
+  content:"🔍";position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  font-size:14px;pointer-events:none;z-index:1
+}
+.search-results{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;
+  background:#fff;border:1px solid var(--border);border-radius:var(--r);
+  box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:50;max-height:320px;overflow-y:auto
+}
+.search-results .sr-item{
+  padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:10px
+}
+.search-results .sr-item:hover{background:var(--bleu-p)}
+.search-results .sr-item:last-child{border-bottom:none}
+.sr-name{font-weight:700;font-size:13px}
+.sr-info{font-size:11px;color:var(--gris)}
+.sr-empty{padding:14px;text-align:center;color:var(--gris);font-size:13px}
+.search-wrap{position:relative}
+
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--bleu-c);margin-bottom:16px}
+.tab{padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--gris);border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s}
+.tab:hover{color:var(--bleu)}.tab.active{color:var(--bleu);border-bottom-color:var(--bleu)}
+
+.container{max-width:1320px;margin:0 auto;padding:22px 18px}
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:16px 20px;margin-bottom:16px}
+.card-title{font-size:11px;font-weight:700;color:var(--bleu);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px}
+
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+select,input[type=text],input[type=number],input[type=date],input[type=search]{
+  height:34px;border:1px solid var(--border);border-radius:var(--r);
+  padding:0 10px;font-size:13px;font-family:inherit;background:#fff;transition:border-color .2s
+}
+select:focus,input:focus{outline:none;border-color:var(--bleu)}
+textarea{border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;min-height:60px;width:100%}
+textarea:focus{outline:none;border-color:var(--bleu)}
+
+.btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;transition:filter .15s;white-space:nowrap}
+.btn:hover{filter:brightness(.91)}
+.btn-primary{background:var(--bleu);color:#fff}
+.btn-outline{background:#fff;color:var(--bleu);border:1.5px solid var(--bleu)}
+.btn-danger{background:var(--rouge);color:#fff}
+.btn-violet{background:var(--violet);color:#fff}
+.btn-success{background:var(--vert);color:#fff}
+.btn-sm{height:30px;padding:0 11px;font-size:12px}
+.btn-icon{background:none;border:none;cursor:pointer;font-size:15px;padding:3px 6px;border-radius:4px}
+.btn-icon:hover{background:var(--gris-c)}
+
+/* CLASSES MANAGER */
+.classes-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+.classes-table thead th{background:var(--bleu-p);color:var(--bleu);font-weight:700;text-align:left;padding:8px 12px;border-bottom:2px solid var(--bleu-c)}
+.classes-table tbody tr{border-bottom:1px solid var(--border)}
+.classes-table tbody tr:hover{background:var(--bleu-p)}
+.classes-table td{padding:8px 12px;vertical-align:middle}
+.csv-status{display:inline-flex;align-items:center;gap:5px;font-size:12px}
+.csv-ok{color:var(--vert);font-weight:700}
+.csv-none{color:var(--gris);font-style:italic}
+.add-classe-row{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+
+/* AFFECT BAR */
+.affect-bar{background:var(--violet-c);border:1.5px solid var(--violet);border-radius:var(--r);padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.sel-count{font-size:13px;font-weight:700;color:var(--violet)}
+
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--bleu-p);color:var(--bleu);font-weight:700;text-align:left;padding:9px 10px;border-bottom:2px solid var(--bleu-c);white-space:nowrap}
+thead th.th-c{width:36px;text-align:center}
+tbody tr{border-bottom:1px solid var(--border)}
+tbody tr:hover{filter:brightness(.97)}
+tbody tr.selected{background:var(--violet-c)!important}
+tbody tr.row-asns{background:#dbeafe}
+tbody tr.row-asns:hover{background:#bfdbfe}
+tbody tr.row-aisance{background:#dcfce7}
+tbody tr.row-aisance:hover{background:#bbf7d0}
+/* MODE SAISIE RAPIDE */
+.saisie-bar{background:#1E508C;color:#fff;border-radius:var(--r);padding:10px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.saisie-bar .saisie-label{font-weight:700;font-size:13px}
+.btn-saisie{background:#fff;color:var(--bleu);border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer}
+.btn-saisie:hover{background:var(--bleu-c)}
+.diplome-inline{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.di-btn{border:1.5px solid var(--border);background:#fff;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.di-btn:hover{border-color:var(--bleu)}
+.di-btn.di-asns{background:#2563eb;color:#fff;border-color:#2563eb}
+.di-btn.di-aisance{background:#16a34a;color:#fff;border-color:#16a34a}
+.di-btn.di-rien{background:#e5e7eb;color:#374151;border-color:#9ca3af}
+.di-btn.di-inc{background:#dc2626;color:#fff;border-color:#dc2626;font-size:14px}
+tbody tr.row-inc{background:#fee2e2!important}
+tbody tr.row-inc:hover{background:#fecaca!important}
+.raison-inline{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:4px}
+.ri-btn{border:1px solid var(--border);background:#fff;border-radius:5px;padding:2px 8px;font-size:11px;cursor:pointer;transition:all .12s}
+.ri-btn:hover{border-color:var(--rouge)}
+.ri-btn.ri-active{background:var(--rouge-c);border-color:var(--rouge);color:var(--rouge);font-weight:700}
+.ri-autre-inp{height:26px;border:1px solid var(--border);border-radius:5px;padding:0 7px;font-size:11px;width:140px;margin-top:3px}
+tbody td{padding:8px 10px;vertical-align:middle}
+tbody td.td-c{text-align:center}
+.empty-row{text-align:center;color:var(--gris);padding:30px!important}
+.row-inactif{opacity:.45}
+.notes-cell{font-size:11px;color:var(--gris)}
+
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.b-asns{background:var(--bleu-c);color:var(--bleu)}
+.b-aisance{background:var(--vert-c);color:var(--vert)}
+.b-none{background:var(--gris-c);color:var(--gris)}
+.b-pre{font-size:11px;color:var(--or);margin-left:3px;cursor:help}
+.tag-ens{font-size:11px;background:var(--bleu-c);color:var(--bleu);padding:1px 7px;border-radius:10px;font-weight:600}
+.tag-noens{font-size:11px;color:var(--gris);font-style:italic}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.stat-card{border-radius:var(--r);padding:13px 15px}
+.s-asns{background:var(--bleu-c)}.s-aisance{background:var(--vert-c)}.s-rien{background:var(--rouge-c)}.s-prog{background:var(--or-c)}
+.stat-val{font-size:30px;font-weight:800;line-height:1}.stat-val small{font-size:14px}
+.stat-lbl{font-size:12px;font-weight:600;color:var(--text2);margin-top:3px}.stat-lbl span{font-weight:400}
+.stat-empty{color:var(--gris);font-size:13px}
+.sexe-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:4px}
+.sexe-card{border-radius:var(--r);padding:14px 16px;border:1.5px solid transparent}
+.sexe-f{background:#fce7f3;border-color:#f9a8d4}
+.sexe-g{background:#dbeafe;border-color:#93c5fd}
+.sexe-u{background:var(--gris-c);border-color:var(--border)}
+.sexe-title{font-size:14px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.sexe-total{font-size:12px;font-weight:400;color:var(--text2);margin-left:4px}
+.sexe-bars{display:flex;flex-direction:column;gap:6px}
+.pb-wrap{display:flex;flex-direction:column;gap:7px}
+.pb-row{display:flex;align-items:center;gap:8px;font-size:12px}
+.pb-row span{width:95px;text-align:right;color:var(--text2)}
+.pb-track{flex:1;height:10px;background:var(--gris-c);border-radius:5px;overflow:hidden}
+.pb-fill{height:100%;border-radius:5px;transition:width .5s}
+.pb-a{background:var(--bleu)}.pb-ai{background:var(--vert)}.pb-r{background:#D1D5DB}
+.pb-row b{width:36px;font-size:11px}
+
+/* TOOLBAR */
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px}
+.toolbar .spacer{flex:1}
+.toggle-label{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--gris);cursor:pointer}
+.count-lbl{font-size:12px;color:var(--gris)}
+
+/* ONGLET AFFECTATION */
+.classe-block{margin-bottom:16px}
+.classe-hdr{display:flex;align-items:center;justify-content:space-between;background:var(--bleu-p);border:1px solid var(--bleu-c);border-radius:var(--r) var(--r) 0 0;padding:8px 14px;font-weight:700;font-size:13px;color:var(--bleu)}
+.classe-body{border:1px solid var(--bleu-c);border-top:none;border-radius:0 0 var(--r) var(--r);overflow:hidden}
+
+/* FICHE ÉLÈVE MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:10px;padding:24px;width:600px;max-width:96vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.22)}
+.modal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-hdr h2{font-size:16px;color:var(--bleu)}
+.modal-x{background:none;border:none;font-size:22px;cursor:pointer;color:var(--gris)}
+.modal-x:hover{color:var(--text)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg.full{grid-column:1/-1}
+.fg label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
+.fsep{grid-column:1/-1;font-size:11px;font-weight:700;color:var(--bleu);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bleu-c);padding-bottom:4px;margin-top:8px}
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+
+/* HISTORIQUE ÉLÈVE */
+.histo-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.histo-table th{background:var(--gris-c);padding:5px 8px;text-align:left;font-weight:700;color:var(--text2)}
+.histo-table td{padding:5px 8px;border-bottom:1px solid var(--border)}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;right:22px;background:#1f2937;color:#fff;padding:10px 18px;border-radius:var(--r);font-size:13px;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;z-index:200}
+.toast.show{opacity:1;transform:translateY(0)}.toast.warn{background:#92400e}
+
+.hidden{display:none!important}
+#loading-overlay.hidden{display:none!important}
+.sep{color:var(--border);font-size:18px;margin:0 2px}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">🏊</span>
+  <div><div class="h-title">Suivi Aquatique EPS</div><div class="h-sub">ASNS · Aisance aquatique · Historique élèves</div></div>
+  <div id="conn-badge" class="conn-badge conn-wait" title="État de la connexion Firebase">
+    <span class="dot"></span>
+    <span id="conn-label">Connexion…</span>
+  </div>
+</header>
+
+<!-- RECHERCHE GLOBALE -->
+<div class="search-global-bar">
+  <div class="search-wrap" style="position:relative">
+    <div class="icon">
+      <input type="text" id="g-search" placeholder="Rechercher un élève (toutes années)…" autocomplete="off"/>
+    </div>
+    <div class="search-results hidden" id="g-results"></div>
+  </div>
+  <span style="font-size:12px;color:var(--gris)">Recherche dans tout l'historique</span>
+</div>
+
+<!-- Overlay chargement Firebase -->
+<div id="loading-overlay" style="position:fixed;inset:0;background:rgba(238,244,251,.92);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
+  <div style="font-size:36px">🏊</div>
+  <div style="font-size:15px;font-weight:700;color:#1E508C">Connexion à la base de données…</div>
+  <div style="font-size:12px;color:#6B7280">Firebase Realtime Database</div>
+</div>
+
+<div class="container">
+
+  <!-- ANNÉE -->
+  <div class="card">
+    <div class="card-title">Année scolaire</div>
+    <div class="row">
+      <label style="font-weight:600;font-size:13px">Année :</label>
+      <select id="sel-annee"><option value="">— Choisir —</option></select>
+      <span class="sep">|</span>
+      <input type="text" id="inp-annee" placeholder="2025-2026" style="width:108px" maxlength="9"/>
+      <button class="btn btn-outline btn-sm" id="btn-new-annee">+ Créer</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main" class="hidden">
+
+    <!-- GESTION DES CLASSES -->
+    <div class="card">
+      <div class="card-title">Classes de cette année</div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:4px">
+        Ajoutez les classes puis importez un CSV <strong>par classe</strong> via le bouton dédié.
+        Colonnes CSV attendues : <em>Élèves</em> (NOM Prénom), <em>Né(e) le</em>, <em>Classe de rattachement</em>.
+      </p>
+      <div id="classes-list"></div>
+      <!-- input file caché, déclenché dynamiquement -->
+      <input type="file" id="inp-csv" accept=".csv" class="hidden"/>
+      <div class="add-classe-row">
+        <input type="text" id="inp-classe" placeholder="Ex : 6e A" style="width:130px"/>
+        <button class="btn btn-outline btn-sm" id="btn-add-classe">+ Ajouter une classe</button>
+        <span style="font-size:11px;color:var(--gris);margin-left:4px">Appuyez sur Entrée ou cliquez le bouton</span>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="suivi">📋 Suivi élèves</button>
+      <button class="tab" data-tab="affectation">👥 Affectation enseignants</button>
+      <button class="tab" data-tab="stats">📊 Statistiques</button>
+    </div>
+
+    <!-- ═══ SUIVI ═══ -->
+    <div id="tab-suivi">
+      <div class="card" style="padding:12px 18px">
+        <div class="toolbar">
+          <strong id="annee-lbl" style="font-size:15px;color:var(--bleu)"></strong>
+          <span class="sep">|</span>
+          <button class="btn btn-outline btn-sm" id="btn-add-eleve">+ Élève</button>
+          <span class="spacer"></span>
+          <select id="f-classe"><option value="">Toutes classes</option></select>
+          <select id="f-enseignant">
+            <option value="">Tous enseignants</option>
+            <option>Mme Allard</option><option>Mme Wattron</option>
+            <option>M. Bros</option><option>M. Jaccaz</option><option>M. Schneider</option>
+          </select>
+          <select id="f-statut">
+            <option value="">Tous statuts</option>
+            <option value="ASNS">ASNS</option>
+            <option value="aisance">Aisance aquatique</option>
+            <option value="rien">Non obtenu</option>
+          </select>
+          <input type="search" id="f-search" placeholder="Rechercher dans la liste…" style="width:180px"/>
+          <label class="toggle-label"><input type="checkbox" id="show-inactifs"/> Inactifs</label>
+          <button class="btn btn-success btn-sm" id="btn-saisie-toggle">✏️ Saisie rapide</button>
+          <button class="btn btn-danger btn-sm" id="btn-pdf">📄 PDF</button>
+        </div>
+        <div class="count-lbl" id="count-lbl"></div>
+      </div>
+
+      <!-- Barre affectation rapide -->
+      <div class="affect-bar hidden" id="affect-bar">
+        <span class="sel-count" id="sel-count">0 sélectionné(s)</span>
+        <select id="affect-ens-quick">
+          <option value="">— Assigner un enseignant —</option>
+          <option>Mme Allard</option><option>Mme Wattron</option>
+          <option>M. Bros</option><option>M. Jaccaz</option><option>M. Schneider</option>
+        </select>
+        <button class="btn btn-violet btn-sm" id="btn-affect-apply">✔ Appliquer</button>
+        <button class="btn btn-outline btn-sm" id="btn-affect-cancel">✕ Désélectionner</button>
+      </div>
+
+      <!-- BARRE MODE SAISIE -->
+      <div class="saisie-bar hidden" id="saisie-bar">
+        <span class="saisie-label">✏️ Mode saisie rapide</span>
+        <span style="font-size:12px;opacity:.85">Cliquez directement sur ASNS / Aisance / Rien dans chaque ligne</span>
+        <button class="btn-saisie" id="btn-saisie-off">✕ Quitter</button>
+      </div>
+
+      <div class="card" style="padding:0">
+        <div class="table-wrap">
+          <table id="main-table">
+            <thead>
+              <tr>
+                <th class="th-c"><input type="checkbox" id="chk-all"/></th>
+                <th>Nom</th><th>Prénom</th><th>Classe</th>
+                <th>Enseignant EPS</th><th>Notes</th>
+                <th id="th-diplome">Diplôme</th><th>Date</th><th style="width:70px"></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ AFFECTATION ═══ -->
+    <div id="tab-affectation" class="hidden">
+      <div class="card">
+        <div class="card-title">Affectation des enseignants par groupe de niveau</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px">
+          Cochez les élèves à affecter (plusieurs classes possibles), choisissez l'enseignant et appliquez.
+          Une même classe peut être répartie sur plusieurs enseignants selon le niveau.
+        </p>
+        <div style="background:var(--violet-c);border:1.5px solid var(--violet);border-radius:var(--r);padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+          <span style="font-weight:700;color:var(--violet);font-size:13px" id="aff-sel-count">0 sélectionné(s)</span>
+          <select id="aff-ens-sel">
+            <option value="">— Choisir l'enseignant —</option>
+            <option>Mme Allard</option><option>Mme Wattron</option>
+            <option>M. Bros</option><option>M. Jaccaz</option><option>M. Schneider</option>
+          </select>
+          <button class="btn btn-violet" id="btn-aff-apply">✔ Affecter</button>
+          <button class="btn btn-outline btn-sm" id="btn-aff-desel">Tout désélectionner</button>
+          <span class="spacer" style="flex:1"></span>
+          <input type="search" id="aff-search" placeholder="Rechercher…" style="width:180px"/>
+          <select id="aff-f-classe"><option value="">Toutes classes</option></select>
+        </div>
+        <div id="aff-zone"></div>
+      </div>
+    </div>
+
+    <!-- ═══ STATS ═══ -->
+    <div id="tab-stats" class="hidden">
+      <div class="card">
+        <div class="card-title">Statistiques globales — <span id="stats-annee-lbl"></span></div>
+        <div id="stats-zone"></div>
+      </div>
+      <div class="card"><div class="card-title">Par sexe</div><div id="stats-sexe"></div></div>
+      <div class="card"><div class="card-title">Par classe</div><div id="stats-classes"></div></div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ MODAL ÉLÈVE ═══ -->
+<div class="overlay" id="overlay">
+<div class="modal">
+  <div class="modal-hdr">
+    <h2 id="m-title">Élève</h2>
+    <button class="modal-x" id="btn-close-modal">✕</button>
+  </div>
+  <form id="m-form">
+    <div class="form-grid">
+      <div class="fsep">Identité</div>
+      <div class="fg"><label>Nom *</label><input type="text" id="m-nom" required/></div>
+      <div class="fg"><label>Prénom *</label><input type="text" id="m-prenom" required/></div>
+      <div class="fg"><label>Classe</label>
+        <select id="m-classe">
+          <option value="">— Sans classe —</option>
+        </select>
+      </div>
+      <div class="fg"><label>Enseignant EPS</label>
+        <select id="m-ens">
+          <option value="">— Non affecté —</option>
+          <option>Mme Allard</option><option>Mme Wattron</option>
+          <option>M. Bros</option><option>M. Jaccaz</option><option>M. Schneider</option>
+        </select>
+      </div>
+      <div class="fg"><label>Né(e) le</label><input type="date" id="m-ddn"/></div>
+      <div class="fg"><label>Sexe</label>
+        <select id="m-sexe"><option value="">—</option><option value="F">Fille</option><option value="M">Garçon</option></select>
+      </div>
+      <div class="fg full" style="flex-direction:row;align-items:center;gap:8px">
+        <input type="checkbox" id="m-actif" checked/>
+        <label for="m-actif" style="text-transform:none;font-size:13px;font-weight:600;letter-spacing:0">Élève actif dans l'établissement</label>
+      </div>
+
+      <div class="fsep">Notes trimestrielles (optionnel)</div>
+      <div class="fg"><label>T1 /20</label><input type="number" id="m-t1" min="0" max="20" step="0.5" placeholder="—"/></div>
+      <div class="fg"><label>T2 /20</label><input type="number" id="m-t2" min="0" max="20" step="0.5" placeholder="—"/></div>
+      <div class="fg"><label>T3 /20</label><input type="number" id="m-t3" min="0" max="20" step="0.5" placeholder="—"/></div>
+
+      <div class="fsep">Diplôme obtenu</div>
+      <div class="fg"><label>Diplôme</label>
+        <select id="m-diplome">
+          <option value="">Non obtenu</option>
+          <option value="ASNS">ASNS</option>
+          <option value="aisance">Aisance aquatique</option>
+        </select>
+      </div>
+      <div class="fg"><label>Date d'obtention</label><input type="date" id="m-date"/></div>
+      <div class="fg full" id="z-raison">
+        <label>Raison de non-obtention</label>
+        <select id="m-raison">
+          <option value="">— Choix —</option>
+          <option>Test non validé</option><option>Absence</option><option>Absentéiste</option><option>Dispense ponctuelle</option>
+          <option>Dispense annuelle</option><option>Matériel</option><option>Autre</option>
+        </select>
+      </div>
+      <div class="fg full hidden" id="z-autre">
+        <label>Préciser</label><input type="text" id="m-autre" placeholder="Détailler…"/>
+      </div>
+
+      <div class="fsep">Diplôme à l'entrée de l'année</div>
+      <div class="fg full">
+        <label>Diplôme aquatique déjà acquis en début d'année</label>
+        <select id="m-pre">
+          <option value="">Aucun</option>
+          <option value="ASNS">ASNS</option>
+          <option value="aisance">Aisance aquatique</option>
+        </select>
+      </div>
+
+      <div class="fsep">Remarques</div>
+      <div class="fg full"><label>Notes libres</label><textarea id="m-notes" placeholder="Informations complémentaires…"></textarea></div>
+
+      <!-- Historique inter-années (lecture seule) -->
+      <div class="fsep" id="histo-sep" style="display:none">Historique</div>
+      <div class="fg full hidden" id="histo-zone"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" id="btn-cancel">Annuler</button>
+      <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+    </div>
+  </form>
+</div>
+</div>
+
+<!-- MODAL FICHE LECTURE (recherche globale) -->
+<div class="overlay" id="overlay-fiche">
+<div class="modal">
+  <div class="modal-hdr">
+    <h2 id="fiche-title">Fiche élève</h2>
+    <button class="modal-x" id="btn-close-fiche">✕</button>
+  </div>
+  <div id="fiche-content"></div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════════
+   FIREBASE — Configuration
+════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey:            "AIzaSyBKlBfOOQN2mlH2GYyYhWMvo6Ozw4m8TzI",
+  authDomain:        "inventaire-materiel-a7b8c.firebaseapp.com",
+  databaseURL:       "https://inventaire-materiel-a7b8c-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "inventaire-materiel-a7b8c",
+  storageBucket:     "inventaire-materiel-a7b8c.firebasestorage.app",
+  messagingSenderId: "708986692713",
+  appId:             "1:708986692713:web:68b8dd9ab9f86178ac6ef8",
+  measurementId:     "G-GEB31HYEXC"
+};
+firebase.initializeApp(firebaseConfig);
+const rtdb = firebase.database();
+
+/* ════════════════════════════════════
+   STOCKAGE Firebase Realtime Database
+   Nœud : /eps_aquatique/{ annees, eleves }
+════════════════════════════════════ */
+const DB_REF = rtdb.ref('eps_aquatique');
+
+// Surveillance temps réel de la connexion Firebase
+rtdb.ref('.info/connected').on('value', snap => {
+  const connected = snap.val() === true;
+  const badge  = document.getElementById('conn-badge');
+  const label  = document.getElementById('conn-label');
+  if (!badge) return;
+  if (connected) {
+    badge.className  = 'conn-badge conn-ok';
+    label.textContent = 'Connecté';
+  } else {
+    badge.className  = 'conn-badge conn-lost';
+    label.textContent = 'Hors ligne';
+  }
+});
+
+let _cache = null;
+let _saveTimer = null;
+
+async function getDB() {
+  if (_cache) return _cache;
+  try {
+    const snap = await DB_REF.get();
+    _cache = snap.exists() ? snap.val() : { annees:{}, eleves:{} };
+    if (!_cache.annees) _cache.annees = {};
+    if (!_cache.eleves) _cache.eleves = {};
+  } catch(e) {
+    console.warn('Firebase lecture échouée, fallback localStorage', e);
+    try { _cache = JSON.parse(localStorage.getItem('eps_backup'))||{annees:{},eleves:{}}; }
+    catch { _cache = {annees:{},eleves:{}}; }
+  }
+  return _cache;
+}
+
+function saveDB(db) {
+  _cache = db;
+  // Sauvegarde locale de secours immédiate
+  try { localStorage.setItem('eps_backup', JSON.stringify(db)); } catch{}
+  // Debounce : attendre 800ms après le dernier changement avant d'écrire
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async () => {
+    try {
+      await DB_REF.set(db);
+    } catch(e) {
+      console.warn('Firebase sauvegarde échouée', e);
+      toast('⚠️ Sauvegarde cloud échouée — données conservées localement', 'warn');
+    }
+  }, 800);
+}
+
+function ensureAnnee(db,a){if(!db.annees[a])db.annees[a]={classes:[],createdAt:new Date().toISOString()};if(!db.eleves)db.eleves={};}
+
+function makeId(nom,prenom){
+  // L'ID est basé UNIQUEMENT sur nom+prénom pour rester stable entre les imports.
+  // La date de naissance est stockée séparément mais n'entre pas dans l'ID.
+  const s=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'_');
+  return s(nom)+'_'+s(prenom);
+}
+
+/* ════════════════════════════════════
+   ÉTAT GLOBAL
+════════════════════════════════════ */
+let anneeActive='', activeTab='suivi';
+let fClasse='',fEns='',fStatut='',fSearch='';
+let affSearch='',affFClasse='';
+let editingId=null;
+let selectedIds=new Set();
+
+/* ════════ INIT ════════ */
+document.addEventListener('DOMContentLoaded', async ()=>{
+  showLoading(true);
+  await getDB(); // préchargement du cache Firebase
+  showLoading(false);
+  refreshAnneeSel();
+  bindEvents();
+});
+
+function showLoading(on){
+  const el=document.getElementById('loading-overlay');
+  if(el) el.classList.toggle('hidden',!on);
+}
+
+/* ════════ ANNÉES ════════ */
+async function refreshAnneeSel(){
+  const db=await getDB(),annees=Object.keys(db.annees).sort().reverse();
+  const sel=document.getElementById('sel-annee'),prev=sel.value;
+  sel.innerHTML='<option value="">— Choisir —</option>';
+  annees.forEach(a=>sel.innerHTML+=`<option value="${a}">${a}</option>`);
+  if(prev&&annees.includes(prev))sel.value=prev;
+}
+async function chargerAnnee(a){
+  anneeActive=a;
+  document.getElementById('annee-lbl').textContent=a;
+  document.getElementById('stats-annee-lbl').textContent=a;
+  document.getElementById('main').classList.remove('hidden');
+  selectedIds.clear();
+  await getDB(); // assure que le cache est chargé pour cette année
+  renderAll();
+}
+
+/* ════════ CLASSES ════════ */
+function getClasses(){return _cache?.annees?.[anneeActive]?.classes||[];}
+function saveClasses(list){const db=_cache||{annees:{},eleves:{}};ensureAnnee(db,anneeActive);db.annees[anneeActive].classes=list;saveDB(db);}
+
+function addClasse(nom){
+  if(!nom)return;
+  const list=getClasses();
+  if(!list.includes(nom)){list.push(nom);list.sort();saveClasses(list);}
+  renderClasses();refreshClasseSelects();
+}
+function removeClasse(nom){
+  const db=_cache||{annees:{},eleves:{}};
+  ensureAnnee(db,anneeActive);
+
+  // Retirer la classe de la liste — sans toucher aux élèves
+  db.annees[anneeActive].classes=db.annees[anneeActive].classes.filter(c=>c!==nom);
+
+  // Effacer l'info CSV éventuelle pour cette classe
+  if(db.annees[anneeActive].csvInfo)
+    delete db.annees[anneeActive].csvInfo[nom];
+
+  // Les élèves qui avaient cette classe gardent toutes leurs données ;
+  // leur champ classe est vidé pour refléter qu'ils ne sont plus rattachés
+  // à un libellé de classe actif (ils restent visibles dans "Toutes classes")
+  Object.values(db.eleves).forEach(e=>{
+    if(e.annees?.[anneeActive]?.classe===nom)
+      e.annees[anneeActive].classe='';
+  });
+
+  saveDB(db);
+  renderAll();
+  toast(`🗑️ Classe "${nom}" supprimée — les élèves sont conservés`);
+}
+
+function renderClasses(){
+  const list=getClasses();
+  const zone=document.getElementById('classes-list');
+  if(!list.length){
+    zone.innerHTML='<p style="font-size:12px;color:var(--gris);font-style:italic;margin-top:10px">Aucune classe — ajoutez-en ci-dessous.</p>';
+    return;
+  }
+  // Compter les élèves par classe pour afficher dans le tableau
+  const elevesAnnee=getElevesAnnee();
+  const countByClasse={};
+  elevesAnnee.forEach(e=>{if(e.classe)countByClasse[e.classe]=(countByClasse[e.classe]||0)+1;});
+  // Lire les infos de CSV importé par classe
+  const db=_cache||{annees:{},eleves:{}};
+  const csvInfo=db.annees[anneeActive]?.csvInfo||{};
+
+  zone.innerHTML=`<table class="classes-table">
+    <thead><tr>
+      <th>Classe</th>
+      <th>Élèves importés</th>
+      <th>CSV importé</th>
+      <th>Jour piscine</th>
+      <th style="text-align:center">Actions</th>
+    </tr></thead>
+    <tbody>
+    ${list.map(c=>{
+      const n=countByClasse[c]||0;
+      const info=csvInfo[c];
+      const statusHtml=info
+        ?`<span class="csv-status csv-ok">✅ ${info.filename} <span style="font-weight:400;color:var(--gris)">(${info.date})</span></span>`
+        :`<span class="csv-status csv-none">Aucun CSV importé</span>`;
+      return`<tr>
+        <td><strong>${c}</strong></td>
+        <td>${n?`<strong style="color:var(--bleu)">${n}</strong> élève${n>1?'s':''}`:'<span style="color:var(--gris)">—</span>'}</td>
+        <td>${statusHtml}</td>
+        <td>
+          <select class="sel-jour" data-classe="${c}" style="height:28px;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:0 8px;background:#fff">
+            <option value="" ${!db.annees[anneeActive].jourPiscine?.[c]?'selected':''}>—</option>
+            <option value="Mardi" ${db.annees[anneeActive].jourPiscine?.[c]==='Mardi'?'selected':''}>Mardi</option>
+            <option value="Jeudi" ${db.annees[anneeActive].jourPiscine?.[c]==='Jeudi'?'selected':''}>Jeudi</option>
+          </select>
+        </td>
+        <td style="text-align:center;white-space:nowrap">
+          <button class="btn btn-primary btn-sm" data-import-classe="${c}" title="Importer un CSV pour ${c}">⬆ CSV</button>
+          <button class="btn-icon" data-del-classe="${c}" title="Supprimer la classe ${c}" style="margin-left:4px">🗑️</button>
+        </td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>`;
+}
+
+function refreshClasseSelects(){
+  const list=getClasses();
+  // Filtre onglet suivi
+  const fc=document.getElementById('f-classe'),fv=fc.value;
+  fc.innerHTML='<option value="">Toutes classes</option>';
+  list.forEach(c=>fc.innerHTML+=`<option value="${c}">${c}</option>`);
+  if(list.includes(fv))fc.value=fv;
+  // Filtre onglet affectation
+  const fa=document.getElementById('aff-f-classe'),av=fa.value;
+  fa.innerHTML='<option value="">Toutes classes</option>';
+  list.forEach(c=>fa.innerHTML+=`<option value="${c}">${c}</option>`);
+  if(list.includes(av))fa.value=av;
+  // Select modal
+  const mc=document.getElementById('m-classe');
+  mc.innerHTML='<option value="">— Sans classe —</option>';
+  list.forEach(c=>mc.innerHTML+=`<option value="${c}">${c}</option>`);
+}
+
+/* ════════ ÉLÈVES ════════ */
+function getElevesAnnee(){
+  const db=_cache||{annees:{},eleves:{}};
+  return Object.values(db.eleves).filter(e=>e.annees?.[anneeActive]).map(e=>({...e,...e.annees[anneeActive]}));
+}
+function filteredEleves(){
+  let list=getElevesAnnee();
+  if(!document.getElementById('show-inactifs').checked)list=list.filter(e=>e.actif!==false);
+  if(fClasse)  list=list.filter(e=>e.classe===fClasse);
+  if(fEns)     list=list.filter(e=>e.enseignant===fEns);
+  if(fStatut==='ASNS')   list=list.filter(e=>e.diplome==='ASNS');
+  if(fStatut==='aisance')list=list.filter(e=>e.diplome==='aisance');
+  if(fStatut==='rien')   list=list.filter(e=>!e.diplome);
+  if(fSearch){const q=fSearch.toLowerCase();list=list.filter(e=>(e.nom+e.prenom+e.classe).toLowerCase().includes(q));}
+  return list.sort((a,b)=>(a.classe||'').localeCompare(b.classe||'')||a.nom.localeCompare(b.nom)||a.prenom.localeCompare(b.prenom));
+}
+function badgeOf(d){
+  if(d==='ASNS')   return{txt:'ASNS',cls:'b-asns'};
+  if(d==='aisance')return{txt:'Aisance aquatique',cls:'b-aisance'};
+  return{txt:'Non obtenu',cls:'b-none'};
+}
+
+/* ════════ RENDU ════════ */
+function renderAll(){
+  renderClasses();refreshClasseSelects();
+  renderEleves();updateAffectBar();
+  if(activeTab==='affectation')renderAffectation();
+  if(activeTab==='stats')renderStats();
+}
+let modeSaisie = false;
+
+function renderEleves(){
+  const list=filteredEleves();
+  document.getElementById('count-lbl').textContent=`${list.length} élève(s)`;
+  const tbody=document.getElementById('tbody');
+  if(!list.length){tbody.innerHTML=`<tr><td colspan="9" class="empty-row">Aucun élève.</td></tr>`;return;}
+
+  const RAISONS=['Test non validé','Absence','Absentéiste','Dispense ponctuelle','Dispense annuelle','Matériel','Autre'];
+
+  tbody.innerHTML=list.map(e=>{
+    const {txt,cls}=badgeOf(e.diplome);
+    const pre=e.diplomePrealable?`<span class="b-pre" title="Diplôme entrée : ${e.diplomePrealable}">★</span>`:'';
+    const sexeTag=e.sexe==='F'?'<span style="font-size:10px;color:#be185d;margin-left:3px" title="Fille">♀</span>':e.sexe==='M'?'<span style="font-size:10px;color:#1d4ed8;margin-left:3px" title="Garçon">♂</span>':'';
+    const sel=selectedIds.has(e.id)?'selected':'';
+    const inactif=e.actif===false?'row-inactif':'';
+    const rowColor=e.actif===false?'':e.diplome==='ASNS'?'row-asns':e.diplome==='aisance'?'row-aisance':e.incertain?'row-inc':'';
+    const notes=[e.noteT1?`T1:${e.noteT1}`:'',e.noteT2?`T2:${e.noteT2}`:'',e.noteT3?`T3:${e.noteT3}`:''].filter(Boolean).join(' ')||'—';
+    const ensHtml=e.enseignant?`<span class="tag-ens">${e.enseignant}</span>`:`<span class="tag-noens">Non affecté</span>`;
+
+    // Cellule diplôme : badge normal OU contrôles inline en mode saisie
+    let diplomeCellHtml;
+    if(modeSaisie){
+      const btnA=`<button class="di-btn${e.diplome==='ASNS'?' di-asns':''}" data-saisie-diplome="ASNS" data-id="${e.id}">ASNS</button>`;
+      const btnAi=`<button class="di-btn${e.diplome==='aisance'?' di-aisance':''}" data-saisie-diplome="aisance" data-id="${e.id}">Aisance</button>`;
+      const btnR=`<button class="di-btn${!e.diplome&&!e.incertain?' di-rien':''}" data-saisie-diplome="" data-id="${e.id}">Rien</button>`;
+      const btnInc=`<button class="di-btn${e.incertain?' di-inc':''}" data-saisie-inc="${e.id}" title="Situation à éclaircir">?</button>`;
+      // Raisons inline si rien
+      let raisonsHtml='';
+      if(!e.diplome){
+        const rbts=RAISONS.map(r=>`<button class="ri-btn${e.raison===r?' ri-active':''}" data-saisie-raison="${r}" data-id="${e.id}">${r}</button>`).join('');
+        const autreInp=e.raison==='Autre'?`<input class="ri-autre-inp" data-saisie-autre data-id="${e.id}" value="${e.raisonAutre||''}" placeholder="Préciser…"/>`:'';
+        raisonsHtml=`<div class="raison-inline">${rbts}${autreInp}</div>`;
+      }
+      diplomeCellHtml=`<div class="diplome-inline">${btnA}${btnAi}${btnR}${btnInc}</div>${raisonsHtml}`;
+    } else {
+      diplomeCellHtml=`<span class="badge ${cls}">${txt}</span>`;
+    }
+
+    return`<tr class="${inactif} ${rowColor} ${sel}" data-id="${e.id}">
+      <td class="td-c"><input type="checkbox" class="row-chk" data-id="${e.id}" ${selectedIds.has(e.id)?'checked':''}/></td>
+      <td>${e.nom}${pre}</td><td>${e.prenom}${sexeTag}</td>
+      <td>${e.classe||'—'}</td><td>${ensHtml}</td>
+      <td class="notes-cell">${notes}</td>
+      <td>${diplomeCellHtml}</td>
+      <td>${e.dateDiplome||''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-icon" data-edit="${e.id}" title="Modifier">✏️</button>
+        <button class="btn-icon" data-del="${e.id}" title="Supprimer">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function updateAffectBar(){
+  const n=selectedIds.size;
+  document.getElementById('affect-bar').classList.toggle('hidden',n===0);
+  document.getElementById('sel-count').textContent=`${n} élève(s) sélectionné(s)`;
+}
+
+/* ════════ RECHERCHE GLOBALE ════════ */
+function searchGlobal(q){
+  if(!q||q.length<2){document.getElementById('g-results').classList.add('hidden');return;}
+  const db=_cache||{annees:{},eleves:{}};
+  const res=Object.values(db.eleves).filter(e=>{
+    const s=(e.nom+e.prenom).toLowerCase();
+    return s.includes(q.toLowerCase());
+  }).slice(0,12);
+  const zone=document.getElementById('g-results');
+  if(!res.length){zone.innerHTML='<div class="sr-empty">Aucun résultat</div>';zone.classList.remove('hidden');return;}
+  zone.innerHTML=res.map(e=>{
+    const annees=Object.keys(e.annees||{}).sort().join(', ')||'—';
+    const lastA=Object.keys(e.annees||{}).sort().reverse()[0];
+    const ea=lastA?e.annees[lastA]:{};
+    const {txt,cls}=badgeOf(ea.diplome);
+    return`<div class="sr-item" data-fiche="${e.id}">
+      <div>
+        <div class="sr-name">${e.nom} ${e.prenom}</div>
+        <div class="sr-info">Années : ${annees} · Dernière classe : ${ea.classe||'—'}</div>
+      </div>
+      <span class="badge ${cls}">${txt}</span>
+    </div>`;
+  }).join('');
+  zone.classList.remove('hidden');
+}
+
+function openFiche(id){
+  const db=_cache||{annees:{},eleves:{}};const e=db.eleves[id];if(!e)return;
+  document.getElementById('fiche-title').textContent=`${e.prenom} ${e.nom}`;
+  const annees=Object.keys(e.annees||{}).sort().reverse();
+  let html=`<table class="histo-table"><thead><tr>
+    <th>Année</th><th>Classe</th><th>Enseignant</th><th>Diplôme</th><th>Date</th><th>Notes</th>
+  </tr></thead><tbody>`;
+  annees.forEach(a=>{
+    const ea=e.annees[a];
+    const {txt,cls}=badgeOf(ea.diplome);
+    const notes=[ea.noteT1?`T1:${ea.noteT1}`:'',ea.noteT2?`T2:${ea.noteT2}`:'',ea.noteT3?`T3:${ea.noteT3}`:''].filter(Boolean).join(' ')||'—';
+    html+=`<tr>
+      <td><strong>${a}</strong></td><td>${ea.classe||'—'}</td>
+      <td>${ea.enseignant||'—'}</td>
+      <td><span class="badge ${cls}">${txt}</span></td>
+      <td>${ea.dateDiplome||'—'}</td><td>${notes}</td>
+    </tr>`;
+  });
+  html+=`</tbody></table>`;
+  if(anneeActive&&e.annees[anneeActive]){
+    html+=`<div style="margin-top:14px"><button class="btn btn-outline btn-sm" data-edit-from-fiche="${id}">✏️ Modifier pour ${anneeActive}</button></div>`;
+  }
+  document.getElementById('fiche-content').innerHTML=html;
+  document.getElementById('g-results').classList.add('hidden');
+  document.getElementById('g-search').value='';
+  document.getElementById('overlay-fiche').classList.add('open');
+}
+
+/* ════════ IMPORT CSV ════════ */
+function normalizeHeader(h){
+  // Supprime accents, parenthèses, espaces multiples, guillemets → clé simple
+  return h.trim().replace(/^["']|["']$/g,'')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')  // accents
+    .replace(/[\(\)]/g,'')                              // parenthèses
+    .replace(/\s+/g,' ')                                // espaces multiples
+    .trim();
+}
+
+function parseCSV(text){
+  // Nettoyer BOM (Byte Order Mark) UTF-8 ou UTF-16 en début de fichier
+  text = text.replace(/^\uFEFF/, '');
+  // Normaliser les fins de ligne Windows \r\n → \n
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines=text.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length<2)return[];
+  const sep=lines[0].split(';').length>lines[0].split(',').length?';':',';
+
+  // Headers bruts (pour debug) ET normalisés
+  const rawHeaders=lines[0].split(sep).map(h=>h.trim().replace(/^["']|["']$/g,''));
+  const headers=rawHeaders.map(normalizeHeader);
+
+  // Log pour debug (visible dans la console F12)
+  console.log('[CSV] Séparateur:', JSON.stringify(sep));
+  console.log('[CSV] Headers bruts:', rawHeaders);
+  console.log('[CSV] Headers normalisés:', headers);
+
+  return lines.slice(1).map(line=>{
+    const cols=[];let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"'){inQ=!inQ;}
+      else if(ch===sep&&!inQ){cols.push(cur.trim());cur='';}
+      else cur+=ch;
+    }
+    cols.push(cur.trim());
+    const obj={_cols:cols}; // garder les colonnes brutes par index
+    headers.forEach((h,i)=>{obj[h]=(cols[i]||'').replace(/^["']|["']$/g,'').trim();});
+    return obj;
+  });
+}
+
+function splitNomPrenom(str){
+  // Format "NOM Prénom" ou "NOM PRENOM"
+  const parts=str.trim().split(/\s+/);
+  if(parts.length===1)return{nom:parts[0],prenom:''};
+  // Premier mot tout en majuscules = nom
+  const nomParts=[],prenomParts=[];
+  let inPrenom=false;
+  parts.forEach(p=>{
+    if(!inPrenom&&p===p.toUpperCase()&&p.length>1)nomParts.push(p);
+    else{inPrenom=true;prenomParts.push(p);}
+  });
+  if(!prenomParts.length&&nomParts.length>1){
+    prenomParts.push(nomParts.pop());
+  }
+  return{nom:nomParts.join(' '),prenom:prenomParts.join(' ')};
+}
+
+function importCSV(file,forceClasse){
+  // Lire d'abord en UTF-8, puis retenter en Windows-1252 si les accents semblent corrompus
+  function readWithEncoding(enc){
+    return new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=e=>resolve(e.target.result);
+      reader.onerror=reject;
+      reader.readAsText(file, enc);
+    });
+  }
+
+  readWithEncoding('UTF-8').then(text=>{
+    // Détecter si le texte semble corrompu (présence de caractères de remplacement typiques Windows-1252)
+    // Heuristique : si "lves" ou "N" suivi d'un caractère non-latin apparaît dans les 200 premiers caractères
+    const sample = text.substring(0,300);
+    const looksCorrupted = /[ÉÊÈÀÂÙÛÎÔÇé]{0}(Ã|Â|Ã©|Ã¨|Ã |Ã|É|é)/.test(sample)
+      || (sample.includes('?') && !sample.includes('Élèves') && !sample.includes('Eleves'));
+    if(looksCorrupted){
+      console.log('[CSV] UTF-8 semble corrompu, retentative en Windows-1252');
+      return readWithEncoding('windows-1252');
+    }
+    return text;
+  }).then(text=>{
+    console.log('[CSV] Premiers caractères:', JSON.stringify(text.substring(0,80)));
+    const rows=parseCSV(text);
+    const db=_cache||{annees:{},eleves:{}};
+    ensureAnnee(db,anneeActive);
+    if(!db.annees[anneeActive].csvInfo)db.annees[anneeActive].csvInfo={};
+    let count=0,ignored=0;
+
+    rows.forEach(row=>{
+      // Colonne "Élèves" = "NOM Prénom"
+      const elevesCol = row['eleves']||row['élèves']||row['nom']||row['name']||'';
+      let nom='',prenom='';
+      if(elevesCol){
+        const sp=splitNomPrenom(elevesCol);
+        nom=sp.nom;prenom=sp.prenom;
+      } else {
+        nom=row['nom']||row['name']||'';
+        prenom=row['prenom']||row['prénom']||row['firstname']||'';
+      }
+      if(!nom){ignored++;return;}
+
+      // Cherche la date de naissance : par clé normalisée OU par index de colonne (col C = index 2 dans votre export)
+      const ddnKeys=['nee le','ne e le','naissance','date naissance','date_naissance','ddn','born','birthday','birth'];
+      let ddn = ddnKeys.reduce((acc,k)=>acc||row[k]||'','');
+      // Fallback : colonne index 2 (C dans Excel = 3ème colonne) si clé non trouvée
+      if(!ddn && row._cols && row._cols[2]) ddn = row._cols[2].replace(/^["']|["']$/g,'').trim();
+      console.log('[CSV] ddn trouvé:', JSON.stringify(ddn));
+      // Normaliser le sexe : M/F ou Masculin/Féminin → M/F
+      let sexeRaw=(row['sexe']||row['genre']||row['sex']||'').trim();
+      // Fallback : colonne index 3 (D dans Excel = 4ème colonne)
+      if(!sexeRaw && row._cols && row._cols[3]) sexeRaw=row._cols[3].replace(/^["']|["']$/g,'').trim();
+      const sexe=sexeRaw.toLowerCase().startsWith('f')?'F':sexeRaw.toLowerCase().startsWith('m')?'M':'';
+      // Classe : forcée par l'UI OU colonne CSV
+      const classe= forceClasse||row['classe de rattachement']||row['classe']||row['class']||'';
+      const email = row['adresse e-mail']||row['email']||'';
+
+      // Auto-ajouter la classe à la liste si inconnue
+      if(classe&&!db.annees[anneeActive].classes.includes(classe)){
+        db.annees[anneeActive].classes.push(classe);
+        db.annees[anneeActive].classes.sort();
+      }
+
+      const id=makeId(nom,prenom);
+      if(!db.eleves[id])db.eleves[id]={id,nom,prenom,dateNaissance:ddn,sexe,email,annees:{}};
+      else{
+        db.eleves[id].nom=nom||db.eleves[id].nom;
+        db.eleves[id].prenom=prenom||db.eleves[id].prenom;
+        if(ddn)db.eleves[id].dateNaissance=ddn;
+        if(sexe)db.eleves[id].sexe=sexe;
+        if(email)db.eleves[id].email=email;
+      }
+
+      const ex=db.eleves[id].annees[anneeActive]||{};
+      db.eleves[id].annees[anneeActive]={
+        classe,
+        enseignant:      ex.enseignant||'',
+        diplome:         ex.diplome||'',
+        dateDiplome:     ex.dateDiplome||'',
+        diplomePrealable:ex.diplomePrealable||'',
+        raison:          ex.raison||'',
+        raisonAutre:     ex.raisonAutre||'',
+        noteT1:          ex.noteT1||'',
+        noteT2:          ex.noteT2||'',
+        noteT3:          ex.noteT3||'',
+        notes:           ex.notes||'',
+        actif:           ex.actif!==undefined?ex.actif:true,
+      };
+      count++;
+    });
+
+    // Enregistrer l'info du CSV importé par classe
+    const dateStr=new Date().toLocaleDateString('fr-FR');
+    const fname=file.name;
+    if(forceClasse){
+      db.annees[anneeActive].csvInfo[forceClasse]={filename:fname,date:dateStr};
+    } else {
+      // Marquer toutes les classes trouvées dans ce CSV
+      const classesInCSV=[...new Set(rows.map(r=>r['classe de rattachement']||r['classe']||r['class']||'').filter(Boolean))];
+      classesInCSV.forEach(c=>{ db.annees[anneeActive].csvInfo[c]={filename:fname,date:dateStr}; });
+      if(!classesInCSV.length && count>0) db.annees[anneeActive].csvInfo['_global']={filename:fname,date:dateStr};
+    }
+    saveDB(db);
+    renderAll();
+    toast(`✅ ${count} élève(s) importé(s)${ignored?` (${ignored} ligne(s) ignorée(s))`:''}${forceClasse?' → '+forceClasse:''}`);
+  });
+}
+
+/* ════════ AFFECTATION ════════ */
+function applyAffectation(ens,ids){
+  if(!ens){toast('⚠️ Choisir un enseignant','warn');return;}
+  if(!ids.size){toast('⚠️ Sélectionner au moins un élève','warn');return;}
+  const db=_cache||{annees:{},eleves:{}};
+  ids.forEach(id=>{if(db.eleves[id]?.annees?.[anneeActive])db.eleves[id].annees[anneeActive].enseignant=ens;});
+  saveDB(db);selectedIds.clear();renderAll();
+  toast(`✔ ${ids.size} élève(s) affecté(s) à ${ens}`);
+}
+
+function renderAffectation(){
+  let list=getElevesAnnee().filter(e=>e.actif!==false);
+  if(affFClasse)list=list.filter(e=>e.classe===affFClasse);
+  if(affSearch){const q=affSearch.toLowerCase();list=list.filter(e=>(e.nom+e.prenom).toLowerCase().includes(q));}
+
+  const selCount=[...selectedIds].filter(id=>list.find(e=>e.id===id)).length;
+  document.getElementById('aff-sel-count').textContent=`${selCount} sélectionné(s)`;
+
+  const byClasse={};
+  list.forEach(e=>{const c=e.classe||'(sans classe)';if(!byClasse[c])byClasse[c]=[];byClasse[c].push(e);});
+
+  const zone=document.getElementById('aff-zone');
+  if(!list.length){zone.innerHTML='<p style="color:var(--gris);font-size:13px">Aucun élève.</p>';return;}
+
+  zone.innerHTML=Object.keys(byClasse).sort().map(classe=>{
+    const eleves=byClasse[classe].sort((a,b)=>a.nom.localeCompare(b.nom));
+    const allSel=eleves.every(e=>selectedIds.has(e.id));
+    return`<div class="classe-block">
+      <div class="classe-hdr">
+        <span>📚 ${classe} <span style="font-weight:400;font-size:12px;color:var(--text2)">(${eleves.length} élève${eleves.length>1?'s':''})</span></span>
+        <label style="font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px">
+          <input type="checkbox" class="chk-classe" data-classe="${classe}" ${allSel?'checked':''}/> Tout sélectionner
+        </label>
+      </div>
+      <div class="classe-body">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:var(--gris-c)">
+            <th style="width:36px;padding:7px 10px;text-align:center"></th>
+            <th style="padding:7px 10px;font-weight:700;color:var(--text2)">Nom</th>
+            <th style="padding:7px 10px;font-weight:700;color:var(--text2)">Prénom</th>
+            <th style="padding:7px 10px;font-weight:700;color:var(--text2)">Enseignant actuel</th>
+            <th style="padding:7px 10px;font-weight:700;color:var(--text2)">Diplôme</th>
+          </tr></thead>
+          <tbody>
+          ${eleves.map(e=>{
+            const{txt,cls}=badgeOf(e.diplome);
+            const sel=selectedIds.has(e.id);
+            return`<tr style="border-bottom:1px solid var(--border);${sel?'background:var(--violet-c)':''}">
+              <td style="text-align:center;padding:6px 10px"><input type="checkbox" class="aff-chk" data-id="${e.id}" ${sel?'checked':''}/></td>
+              <td style="padding:6px 10px">${e.nom}</td>
+              <td style="padding:6px 10px">${e.prenom}</td>
+              <td style="padding:6px 10px">${e.enseignant?`<span class="tag-ens">${e.enseignant}</span>`:`<span class="tag-noens">Non affecté</span>`}</td>
+              <td style="padding:6px 10px"><span class="badge ${cls}">${txt}</span></td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ════════ STATS ════════ */
+function renderStats(){
+  const all=getElevesAnnee().filter(e=>e.actif!==false);
+  const T=all.length;
+  if(!T){document.getElementById('stats-zone').innerHTML='<p class="stat-empty">Aucune donnée.</p>';document.getElementById('stats-classes').innerHTML='';document.getElementById('stats-ens').innerHTML='';return;}
+  const A=all.filter(e=>e.diplome==='ASNS').length;
+  const AI=all.filter(e=>e.diplome==='aisance').length;
+  const R=all.filter(e=>!e.diplome).length;
+  const sP=all.filter(e=>!e.diplomePrealable);
+  const sOk=sP.filter(e=>e.diplome).length;
+  const pct=n=>T?Math.round(n/T*100):0;
+  document.getElementById('stats-zone').innerHTML=`
+    <div class="stats-grid">
+      <div class="stat-card s-asns"><div class="stat-val">${A}</div><div class="stat-lbl">ASNS <span>${pct(A)}%</span></div></div>
+      <div class="stat-card s-aisance"><div class="stat-val">${AI}</div><div class="stat-lbl">Aisance <span>${pct(AI)}%</span></div></div>
+      <div class="stat-card s-rien"><div class="stat-val">${R}</div><div class="stat-lbl">Non obtenu <span>${pct(R)}%</span></div></div>
+      <div class="stat-card s-prog"><div class="stat-val">${sOk}<small>/${sP.length}</small></div><div class="stat-lbl">Sans diplôme entrée → validé</div></div>
+    </div>
+    <div class="pb-wrap">
+      <div class="pb-row"><span>ASNS</span><div class="pb-track"><div class="pb-fill pb-a" style="width:${pct(A)}%"></div></div><b>${pct(A)}%</b></div>
+      <div class="pb-row"><span>Aisance</span><div class="pb-track"><div class="pb-fill pb-ai" style="width:${pct(AI)}%"></div></div><b>${pct(AI)}%</b></div>
+      <div class="pb-row"><span>Non obtenu</span><div class="pb-track"><div class="pb-fill pb-r" style="width:${pct(R)}%"></div></div><b>${pct(R)}%</b></div>
+    </div>`;
+  const classes=[...new Set(all.map(e=>e.classe).filter(Boolean))].sort();
+  document.getElementById('stats-classes').innerHTML=statsTable(classes,c=>all.filter(e=>e.classe===c));
+  renderStatsSexe(all);
+}
+function renderStatsSexe(all){
+  const zone=document.getElementById('stats-sexe');
+  if(!zone)return;
+  const filles=all.filter(e=>e.sexe==='F');
+  const garcons=all.filter(e=>e.sexe==='M');
+  const inconnu=all.filter(e=>e.sexe!=='F'&&e.sexe!=='M');
+
+  function sexeBlock(label, emoji, list, colorCls){
+    const t=list.length; if(!t) return '';
+    const a=list.filter(e=>e.diplome==='ASNS').length;
+    const ai=list.filter(e=>e.diplome==='aisance').length;
+    const r=list.filter(e=>!e.diplome).length;
+    const pct=n=>Math.round(n/t*100);
+    return `<div class="sexe-card ${colorCls}">
+      <div class="sexe-title">${emoji} ${label} <span class="sexe-total">${t} élève${t>1?'s':''}</span></div>
+      <div class="sexe-bars">
+        <div class="pb-row"><span>ASNS</span><div class="pb-track"><div class="pb-fill pb-a" style="width:${pct(a)}%"></div></div><b>${a} <span style="font-weight:400">(${pct(a)}%)</span></b></div>
+        <div class="pb-row"><span>Aisance</span><div class="pb-track"><div class="pb-fill pb-ai" style="width:${pct(ai)}%"></div></div><b>${ai} <span style="font-weight:400">(${pct(ai)}%)</span></b></div>
+        <div class="pb-row"><span>Non obtenu</span><div class="pb-track"><div class="pb-fill pb-r" style="width:${pct(r)}%"></div></div><b>${r} <span style="font-weight:400">(${pct(r)}%)</span></b></div>
+      </div>
+    </div>`;
+  }
+
+  const html = `<div class="sexe-grid">
+    ${sexeBlock('Filles','👧',filles,'sexe-f')}
+    ${sexeBlock('Garçons','👦',garcons,'sexe-g')}
+    ${inconnu.length?sexeBlock('Non renseigné','❓',inconnu,'sexe-u'):''}
+  </div>`;
+
+  zone.innerHTML = (filles.length||garcons.length) ? html
+    : '<p class="stat-empty">Sexe non renseigné dans les données (vérifiez la colonne Sexe dans le CSV).</p>';
+}
+
+function statsTable(keys,getter){
+  if(!keys.length)return'<p style="color:var(--gris);font-size:13px">Aucune donnée.</p>';
+  return`<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="background:var(--bleu-p)">
+      <th style="padding:8px 10px;text-align:left;color:var(--bleu);font-weight:700">Groupe</th>
+      <th style="padding:8px 10px;text-align:center;color:var(--bleu);font-weight:700">Total</th>
+      <th style="padding:8px 10px;text-align:center;color:var(--bleu);font-weight:700">ASNS</th>
+      <th style="padding:8px 10px;text-align:center;color:var(--bleu);font-weight:700">Aisance</th>
+      <th style="padding:8px 10px;text-align:center;color:var(--bleu);font-weight:700">Non obtenu</th>
+      <th style="padding:8px 10px;text-align:center;color:var(--bleu);font-weight:700">% Diplômés</th>
+    </tr></thead><tbody>
+    ${keys.map((k,i)=>{
+      const g=getter(k),t=g.length;
+      const a=g.filter(e=>e.diplome==='ASNS').length;
+      const ai=g.filter(e=>e.diplome==='aisance').length;
+      const r=g.filter(e=>!e.diplome).length;
+      const d=t?Math.round((a+ai)/t*100):0;
+      return`<tr style="border-bottom:1px solid var(--border);${i%2?'background:var(--gris-c)':''}">
+        <td style="padding:7px 10px;font-weight:600">${k}</td>
+        <td style="padding:7px 10px;text-align:center">${t}</td>
+        <td style="padding:7px 10px;text-align:center"><span class="badge b-asns">${a}</span></td>
+        <td style="padding:7px 10px;text-align:center"><span class="badge b-aisance">${ai}</span></td>
+        <td style="padding:7px 10px;text-align:center"><span class="badge b-none">${r}</span></td>
+        <td style="padding:7px 10px;text-align:center;font-weight:700;color:${d>=50?'var(--vert)':'var(--rouge)'}">${d}%</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table>`;
+}
+
+/* ════════ MODAL ÉLÈVE ════════ */
+function openModal(id=null){
+  editingId=id;
+  document.getElementById('m-form').reset();
+  document.getElementById('m-actif').checked=true;
+  document.getElementById('z-raison').classList.remove('hidden');
+  document.getElementById('z-autre').classList.add('hidden');
+  document.getElementById('histo-zone').classList.add('hidden');
+  document.getElementById('histo-sep').style.display='none';
+  refreshClasseSelects();
+
+  if(id){
+    const db=_cache||{annees:{},eleves:{}},e=db.eleves[id],ea=e?.annees?.[anneeActive]||{};
+    document.getElementById('m-title').textContent=`${e.prenom} ${e.nom}`;
+    document.getElementById('m-nom').value=e.nom;
+    document.getElementById('m-prenom').value=e.prenom;
+    document.getElementById('m-classe').value=ea.classe||'';
+    document.getElementById('m-ens').value=ea.enseignant||'';
+    document.getElementById('m-ddn').value=e.dateNaissance||'';
+    document.getElementById('m-sexe').value=e.sexe||'';
+    document.getElementById('m-actif').checked=ea.actif!==false;
+    document.getElementById('m-t1').value=ea.noteT1||'';
+    document.getElementById('m-t2').value=ea.noteT2||'';
+    document.getElementById('m-t3').value=ea.noteT3||'';
+    document.getElementById('m-diplome').value=ea.diplome||'';
+    document.getElementById('m-date').value=ea.dateDiplome||'';
+    document.getElementById('m-raison').value=ea.raison||'';
+    document.getElementById('m-autre').value=ea.raisonAutre||'';
+    document.getElementById('m-pre').value=ea.diplomePrealable||'';
+    document.getElementById('m-notes').value=ea.notes||'';
+    updateRaison(ea.diplome,ea.raison);
+
+    // Historique autres années
+    const autresAnnees=Object.keys(e.annees||{}).filter(a=>a!==anneeActive).sort().reverse();
+    if(autresAnnees.length){
+      document.getElementById('histo-sep').style.display='';
+      const hz=document.getElementById('histo-zone');
+      hz.classList.remove('hidden');
+      hz.innerHTML=`<table class="histo-table"><thead><tr><th>Année</th><th>Classe</th><th>Enseignant</th><th>Diplôme</th><th>Date</th></tr></thead><tbody>`
+        +autresAnnees.map(a=>{const ea2=e.annees[a];const{txt,cls}=badgeOf(ea2.diplome);
+          return`<tr><td><strong>${a}</strong></td><td>${ea2.classe||'—'}</td><td>${ea2.enseignant||'—'}</td><td><span class="badge ${cls}">${txt}</span></td><td>${ea2.dateDiplome||'—'}</td></tr>`;
+        }).join('')
+        +`</tbody></table>`;
+    }
+  } else {
+    document.getElementById('m-title').textContent='Ajouter un élève';
+  }
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('overlay').classList.remove('open');}
+function updateRaison(diplome,raison){
+  document.getElementById('z-raison').classList.toggle('hidden',!!diplome);
+  document.getElementById('z-autre').classList.toggle('hidden',!(!diplome&&raison==='Autre'));
+}
+
+/* ════════ SAVE ════════ */
+document.getElementById('m-form').addEventListener('submit',ev=>{
+  ev.preventDefault();
+  const nom=document.getElementById('m-nom').value.trim();
+  const prenom=document.getElementById('m-prenom').value.trim();
+  if(!nom||!prenom){toast('⚠️ Nom et prénom requis','warn');return;}
+  const diplome=document.getElementById('m-diplome').value;
+  const raison=document.getElementById('m-raison').value;
+  const db=_cache||{annees:{},eleves:{}};ensureAnnee(db,anneeActive);
+  const id=editingId||makeId(nom,prenom);
+  if(!db.eleves[id])db.eleves[id]={id,nom,prenom,dateNaissance:'',sexe:'',email:'',annees:{}};
+  db.eleves[id].nom=nom;db.eleves[id].prenom=prenom;
+  db.eleves[id].dateNaissance=document.getElementById('m-ddn').value;
+  db.eleves[id].sexe=document.getElementById('m-sexe').value;
+  db.eleves[id].annees[anneeActive]={
+    classe:          document.getElementById('m-classe').value,
+    enseignant:      document.getElementById('m-ens').value,
+    actif:           document.getElementById('m-actif').checked,
+    noteT1:          document.getElementById('m-t1').value,
+    noteT2:          document.getElementById('m-t2').value,
+    noteT3:          document.getElementById('m-t3').value,
+    diplome,dateDiplome:document.getElementById('m-date').value,
+    raison:diplome?'':raison,
+    raisonAutre:(!diplome&&raison==='Autre')?document.getElementById('m-autre').value:'',
+    diplomePrealable:document.getElementById('m-pre').value,
+    notes:document.getElementById('m-notes').value.trim(),
+  };
+  saveDB(db);closeModal();renderAll();toast('💾 Élève enregistré');
+});
+
+/* ════════ DELETE ════════ */
+function delEleve(id){
+  const db=_cache||{annees:{},eleves:{}},e=db.eleves[id];
+  if(!e||!confirm(`Retirer ${e.prenom} ${e.nom} de l'année ${anneeActive} ?`))return;
+  delete db.eleves[id].annees[anneeActive];
+  if(!Object.keys(db.eleves[id].annees).length)delete db.eleves[id];
+  saveDB(db);selectedIds.delete(id);renderAll();toast('🗑️ Élève retiré de cette année');
+}
+
+/* ════════ PDF ════════ */
+function exportPDF(){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const list=filteredEleves(),W=297;
+
+  // En-tête
+  doc.setFillColor(30,80,140);doc.rect(0,0,W,20,'F');
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(13);
+  doc.text(`Suivi Aquatique EPS — ${anneeActive}`,14,13);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);
+  doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`,240,13);
+  doc.setTextColor(0,0,0);
+
+  // Colonnes : largeurs ajustées, Nom et Prénom plus larges
+  const cols=['Nom','Prénom','Classe','Enseignant EPS','T1','T2','T3','Diplôme','Date','Raison'];
+  const cW  =[ 38,   30,     16,      34,              9,   9,   9,   28,       22,    46  ];
+  const totalW=cW.reduce((a,b)=>a+b,0);
+  const FS=7.5; // font size données
+  const rH=7;
+  let x=8,y=28;
+
+  // Fonction : écrire texte tronqué dans une cellule (padding 1.5mm, clip à la largeur)
+  function cellText(txt, cx, cy, w){
+    doc.setFontSize(FS);
+    // splitTextToSize renvoie un tableau de lignes qui tiennent dans w-3mm
+    const lines = doc.splitTextToSize(String(txt||''), w-3);
+    // On ne prend que la 1ère ligne pour tenir dans rH
+    doc.text(lines[0]||'', cx+1.5, cy+5);
+  }
+
+  const drawH=()=>{
+    doc.setFillColor(214,228,247);
+    doc.rect(x,y,totalW,rH,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(8);
+    let cx=x;
+    cols.forEach((col,i)=>{doc.text(col,cx+1.5,y+5);cx+=cW[i];});
+    y+=rH;
+    doc.setFont('helvetica','normal');
+  };
+
+  drawH();
+
+  list.forEach((e,idx)=>{
+    if(y>188){doc.addPage();y=12;drawH();}
+
+    // Couleur de fond alternée + selon diplôme
+    if(e.diplome==='ASNS'){
+      doc.setFillColor(219,234,254); // bleu clair
+    } else if(e.diplome==='aisance'){
+      doc.setFillColor(220,252,231); // vert clair
+    } else if(idx%2===0){
+      doc.setFillColor(245,247,250); // gris très léger
+    } else {
+      doc.setFillColor(255,255,255);
+    }
+    doc.rect(x,y,totalW,rH,'F');
+
+    const{txt}=badgeOf(e.diplome);
+    const rai=e.diplome?'':(e.raison==='Autre'?`Autre: ${e.raisonAutre||''}`:e.raison||'');
+    const notes=[e.noteT1||'',e.noteT2||'',e.noteT3||''];
+    const vals=[e.nom,e.prenom,e.classe||'',e.enseignant||'',
+                notes[0],notes[1],notes[2],txt,e.dateDiplome||'',rai];
+
+    let cx=x;
+    vals.forEach((v,i)=>{
+      cellText(v, cx, y, cW[i]);
+      cx+=cW[i];
+    });
+
+    doc.setDrawColor(210,210,210);
+    doc.line(x,y+rH,x+totalW,y+rH);
+    y+=rH;
+  });
+
+  // Page stats
+  doc.addPage();
+  doc.setFillColor(30,80,140);doc.rect(0,0,W,18,'F');
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(12);
+  doc.text('Synthèse statistique',14,12);
+  doc.setTextColor(0,0,0);doc.setFont('helvetica','normal');doc.setFontSize(10);
+  const all=getElevesAnnee().filter(e=>e.actif!==false),T=all.length;
+  const A=all.filter(e=>e.diplome==='ASNS').length;
+  const AI=all.filter(e=>e.diplome==='aisance').length;
+  const R=all.filter(e=>!e.diplome).length;
+  const sP=all.filter(e=>!e.diplomePrealable);
+  const sOk=sP.filter(e=>e.diplome).length;
+  const p=n=>T?Math.round(n/T*100):0;
+  [`Total élèves : ${T}`,`ASNS : ${A} (${p(A)}%)`,`Aisance : ${AI} (${p(AI)}%)`,
+   `Non obtenu : ${R} (${p(R)}%)`,`Sans diplôme à l'entrée → validé : ${sOk}/${sP.length}`
+  ].forEach((l,i)=>doc.text(l,14,30+i*9));
+
+  doc.save(`suivi_aquatique_${anneeActive}.pdf`);
+  toast('📄 PDF généré');
+}
+
+/* ════════ TOAST ════════ */
+function toast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className=`toast show${type==='warn'?' warn':''}`;
+  setTimeout(()=>t.className='toast',3000);
+}
+
+/* ════════ EVENTS ════════ */
+function bindEvents(){
+  // Année
+  document.getElementById('sel-annee').addEventListener('change', async e=>{
+    if(e.target.value) await chargerAnnee(e.target.value);
+    else{anneeActive='';document.getElementById('main').classList.add('hidden');}
+  });
+  document.getElementById('btn-new-annee').addEventListener('click', async ()=>{
+    const v=document.getElementById('inp-annee').value.trim();
+    if(!v.match(/^\d{4}-\d{4}$/)){toast('⚠️ Format : 2025-2026','warn');return;}
+    const db=await getDB();ensureAnnee(db,v);saveDB(db);
+    await refreshAnneeSel();document.getElementById('sel-annee').value=v;
+    await chargerAnnee(v);document.getElementById('inp-annee').value='';
+    toast(`✅ Année ${v} créée`);
+  });
+
+  // Classes
+  document.getElementById('btn-add-classe').addEventListener('click',()=>{
+    const v=document.getElementById('inp-classe').value.trim();
+    if(!anneeActive){toast('⚠️ Choisir une année','warn');return;}
+    if(v)addClasse(v);document.getElementById('inp-classe').value='';
+  });
+  document.getElementById('inp-classe').addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();document.getElementById('btn-add-classe').click();}
+  });
+  // Classes : import par classe + suppression (délégation sur le tableau)
+  let pendingImportClasse = '';
+  document.getElementById('classes-list').addEventListener('click',e=>{
+    // Bouton import CSV d'une classe
+    const imp=e.target.closest('[data-import-classe]');
+    if(imp){
+      pendingImportClasse=imp.dataset.importClasse;
+      document.getElementById('inp-csv').click();
+      return;
+    }
+    // Suppression d'une classe
+    const d=e.target.closest('[data-del-classe]');
+    if(d&&confirm(`Supprimer la classe "${d.dataset.delClasse}" ?\n\nLes élèves de cette classe sont conservés et restent visibles dans le suivi (filtre "Toutes classes"). Seul le libellé de classe est retiré.`))
+      removeClasse(d.dataset.delClasse);
+  });
+
+  // Input file unique, déclenché par le bouton de la classe concernée
+  document.getElementById('inp-csv').addEventListener('change',e=>{
+    const f=e.target.files[0];
+    if(!f)return;
+    importCSV(f, pendingImportClasse);
+    pendingImportClasse='';
+    e.target.value='';
+  });
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+    activeTab=t.dataset.tab;
+    document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===activeTab));
+    ['suivi','affectation','stats'].forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==activeTab));
+    if(activeTab==='affectation')renderAffectation();
+    if(activeTab==='stats')renderStats();
+  }));
+
+  // Filtres suivi
+  document.getElementById('f-classe').addEventListener('change',e=>{fClasse=e.target.value;renderEleves();});
+  document.getElementById('f-enseignant').addEventListener('change',e=>{fEns=e.target.value;renderEleves();});
+  document.getElementById('f-statut').addEventListener('change',e=>{fStatut=e.target.value;renderEleves();});
+  document.getElementById('f-search').addEventListener('input',e=>{fSearch=e.target.value;renderEleves();});
+  document.getElementById('show-inactifs').addEventListener('change',()=>renderEleves());
+
+  // Checkbox tout
+  document.getElementById('chk-all').addEventListener('change',e=>{
+    filteredEleves().forEach(el=>{if(e.target.checked)selectedIds.add(el.id);else selectedIds.delete(el.id);});
+    renderEleves();updateAffectBar();
+  });
+
+  // Délégation tableau
+  document.getElementById('tbody').addEventListener('change',e=>{
+    if(e.target.classList.contains('row-chk')){
+      const id=e.target.dataset.id;
+      if(e.target.checked)selectedIds.add(id);else selectedIds.delete(id);
+      e.target.closest('tr').classList.toggle('selected',e.target.checked);
+      updateAffectBar();
+    }
+    // Saisie rapide : champ "autre" raison
+    if(e.target.dataset.saisieAutre!==undefined){
+      const id=e.target.dataset.id;
+      const db=_cache||{annees:{},eleves:{}};
+      if(db.eleves[id]?.annees?.[anneeActive]){
+        db.eleves[id].annees[anneeActive].raisonAutre=e.target.value;
+        saveDB(db);
+      }
+    }
+    // Jour piscine par classe
+    if(e.target.classList.contains('sel-jour')){
+      const classe=e.target.dataset.classe;
+      const db=_cache||{annees:{},eleves:{}};
+      ensureAnnee(db,anneeActive);
+      if(!db.annees[anneeActive].jourPiscine)db.annees[anneeActive].jourPiscine={};
+      db.annees[anneeActive].jourPiscine[classe]=e.target.value;
+      saveDB(db);
+      toast(`📅 ${classe} → piscine le ${e.target.value||'—'}`);
+    }
+  });
+  document.getElementById('tbody').addEventListener('click',e=>{
+    const ed=e.target.closest('[data-edit]'),dl=e.target.closest('[data-del]');
+    if(ed)openModal(ed.dataset.edit);
+    if(dl)delEleve(dl.dataset.del);
+
+    // Saisie rapide : bouton diplôme inline
+    const sd=e.target.closest('[data-saisie-diplome]');
+    if(sd){
+      const id=sd.dataset.id, diplome=sd.dataset.saisieDiplome;
+      const db=_cache||{annees:{},eleves:{}};
+      if(db.eleves[id]?.annees?.[anneeActive]){
+        const ea=db.eleves[id].annees[anneeActive];
+        ea.diplome=diplome;
+        // Effacer le flag incertain dès qu'un statut est choisi
+        db.eleves[id].incertain=false;
+        // Si diplôme obtenu, effacer raison ; si rien, conserver raison existante
+        if(diplome){ea.raison='';ea.raisonAutre='';}
+        // Date auto si pas encore renseignée et diplôme validé
+        if(diplome && !ea.dateDiplome) ea.dateDiplome=new Date().toISOString().slice(0,10);
+        if(!diplome) ea.dateDiplome='';
+        saveDB(db);
+        renderEleves();renderStats();
+      }
+      return;
+    }
+
+    // Saisie rapide : bouton "?" incertain
+    const sinc=e.target.closest('[data-saisie-inc]');
+    if(sinc){
+      const id=sinc.dataset.saisieInc;
+      const db=_cache||{annees:{},eleves:{}};
+      if(db.eleves[id]?.annees?.[anneeActive]){
+        const ea=db.eleves[id].annees[anneeActive];
+        // Toggle : recliquer sur "?" l'annule
+        db.eleves[id].incertain = !db.eleves[id].incertain;
+        // Si on marque incertain, effacer le diplôme et la raison
+        if(db.eleves[id].incertain){ ea.diplome=''; ea.raison=''; ea.raisonAutre=''; ea.dateDiplome=''; }
+        saveDB(db);
+        renderEleves();
+      }
+      return;
+    }
+
+    // Saisie rapide : bouton raison inline
+    const sr=e.target.closest('[data-saisie-raison]');
+    if(sr){
+      const id=sr.dataset.id, raison=sr.dataset.saisieRaison;
+      const db=_cache||{annees:{},eleves:{}};
+      if(db.eleves[id]?.annees?.[anneeActive]){
+        const ea=db.eleves[id].annees[anneeActive];
+        // Toggle : cliquer deux fois sur la même raison la désélectionne
+        ea.raison = ea.raison===raison ? '' : raison;
+        if(ea.raison!=='Autre')ea.raisonAutre='';
+        saveDB(db);
+        renderEleves();
+      }
+      return;
+    }
+  });
+
+  // Affectation rapide (barre suivi)
+  document.getElementById('btn-affect-apply').addEventListener('click',()=>{
+    applyAffectation(document.getElementById('affect-ens-quick').value,new Set(selectedIds));
+  });
+  document.getElementById('btn-affect-cancel').addEventListener('click',()=>{
+    selectedIds.clear();renderEleves();updateAffectBar();
+  });
+
+  // Onglet affectation
+  document.getElementById('aff-f-classe').addEventListener('change',e=>{affFClasse=e.target.value;renderAffectation();});
+  document.getElementById('aff-search').addEventListener('input',e=>{affSearch=e.target.value;renderAffectation();});
+  document.getElementById('aff-zone').addEventListener('change',e=>{
+    if(e.target.classList.contains('aff-chk')){
+      const id=e.target.dataset.id;
+      if(e.target.checked)selectedIds.add(id);else selectedIds.delete(id);
+      e.target.closest('tr').style.background=e.target.checked?'var(--violet-c)':'';
+      const vis=[...selectedIds].filter(i=>document.querySelector(`.aff-chk[data-id="${i}"]`)).length;
+      document.getElementById('aff-sel-count').textContent=`${vis} sélectionné(s)`;
+    }
+    if(e.target.classList.contains('chk-classe')){
+      const classe=e.target.dataset.classe;
+      getElevesAnnee().filter(el=>(el.classe||'(sans classe)')===classe)
+        .forEach(el=>{if(e.target.checked)selectedIds.add(el.id);else selectedIds.delete(el.id);});
+      renderAffectation();
+    }
+  });
+  document.getElementById('btn-aff-apply').addEventListener('click',()=>{
+    applyAffectation(document.getElementById('aff-ens-sel').value,new Set(selectedIds));
+  });
+  document.getElementById('btn-aff-desel').addEventListener('click',()=>{
+    selectedIds.clear();renderAffectation();updateAffectBar();
+  });
+
+  // Modal
+  document.getElementById('btn-close-modal').addEventListener('click',closeModal);
+  document.getElementById('btn-cancel').addEventListener('click',closeModal);
+  document.getElementById('overlay').addEventListener('click',e=>{if(e.target===document.getElementById('overlay'))closeModal();});
+  document.getElementById('btn-close-fiche').addEventListener('click',()=>document.getElementById('overlay-fiche').classList.remove('open'));
+  document.getElementById('overlay-fiche').addEventListener('click',e=>{if(e.target===document.getElementById('overlay-fiche'))document.getElementById('overlay-fiche').classList.remove('open');});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();document.getElementById('overlay-fiche').classList.remove('open');}});
+
+  document.getElementById('m-diplome').addEventListener('change',e=>updateRaison(e.target.value,document.getElementById('m-raison').value));
+  document.getElementById('m-raison').addEventListener('change',e=>document.getElementById('z-autre').classList.toggle('hidden',e.target.value!=='Autre'));
+
+  document.getElementById('btn-add-eleve').addEventListener('click',()=>openModal());
+  document.getElementById('btn-pdf').addEventListener('click',exportPDF);
+
+  // Mode saisie rapide
+  document.getElementById('btn-saisie-toggle').addEventListener('click',()=>{
+    modeSaisie=true;
+    document.getElementById('saisie-bar').classList.remove('hidden');
+    document.getElementById('btn-saisie-toggle').classList.add('hidden');
+    document.getElementById('th-diplome').textContent='Diplôme  —  cliquez pour saisir';
+    renderEleves();
+  });
+  document.getElementById('btn-saisie-off').addEventListener('click',()=>{
+    modeSaisie=false;
+    document.getElementById('saisie-bar').classList.add('hidden');
+    document.getElementById('btn-saisie-toggle').classList.remove('hidden');
+    document.getElementById('th-diplome').textContent='Diplôme';
+    renderEleves();
+  });
+
+  // Jour piscine dans le tableau des classes (délégation sur classes-list)
+  document.getElementById('classes-list').addEventListener('change',e=>{
+    if(e.target.classList.contains('sel-jour')){
+      const classe=e.target.dataset.classe;
+      const db=_cache||{annees:{},eleves:{}};
+      ensureAnnee(db,anneeActive);
+      if(!db.annees[anneeActive].jourPiscine)db.annees[anneeActive].jourPiscine={};
+      db.annees[anneeActive].jourPiscine[classe]=e.target.value;
+      saveDB(db);
+      toast(`📅 ${classe} → piscine le ${e.target.value||'—'}`);
+    }
+  });
+
+  // Fiche depuis modal fiche
+  document.getElementById('fiche-content').addEventListener('click',e=>{
+    const b=e.target.closest('[data-edit-from-fiche]');
+    if(b){document.getElementById('overlay-fiche').classList.remove('open');openModal(b.dataset.editFromFiche);}
+  });
+
+  // Recherche globale
+  const gi=document.getElementById('g-search');
+  gi.addEventListener('input',e=>searchGlobal(e.target.value));
+  gi.addEventListener('focus',e=>{if(e.target.value.length>=2)document.getElementById('g-results').classList.remove('hidden');});
+  document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))document.getElementById('g-results').classList.add('hidden');});
+  document.getElementById('g-results').addEventListener('click',e=>{
+    const item=e.target.closest('[data-fiche]');
+    if(item)openFiche(item.dataset.fiche);
+  });
+}
+</script>
+</body>
+</html>
